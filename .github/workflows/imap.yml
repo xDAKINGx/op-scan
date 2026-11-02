@@ -11,7 +11,7 @@ jobs:
       max-parallel: 20
       matrix:
         user: ["admin","revan","rev1853","zahhid","info","support","cookscan","admin@cookscan.net","revan@cookscan.net","info@cookscan.net","admin@cookdex.net","postmaster@cookscan.net"]
-        pw: ["admin","revan","revan123","rev1853","cookscan","cookiescan","bigbangx","bigbangxadmin","dosecret","garuda","nexora","Plesk123","admin123","Password1","changeme","secret","letmein","qwerty123","cookie123","dungeon","terra123","luna123","columbus","bridge123","relayer123","hermes123","cookscan123","cookiescan123","bigbangx123","dosecret123","garuda123","nexora123","P@ssw0rd","Admin@123","Welcome1","root","toor","123456","password","Plesk2026","admin2026","bigbangx2026","cookscan2026"]
+        pw: ["admin","revan","revan123","rev1853","cookscan","cookiescan","bigbangx","bigbangxadmin","dosecret","garuda","nexora","Plesk123","admin123","Password1","changeme","secret","letmein","qwerty123","cookie123","dungeon"]
     steps:
       - name: imap ${{ matrix.user }} / ${{ matrix.pw }}
         run: |
