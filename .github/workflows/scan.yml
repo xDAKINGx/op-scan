@@ -29,7 +29,7 @@ jobs:
              "bigbang","bigbang123","bigbangx2024","bigbangx2025","bigbangx2026",
              "cookieverse","dosecret123","bridge","bridge123","relayer","relayer123","hermes","hermes123",
              "cookscan123","cookiescan123","cookiechain123","dungeon123","garuda123","nexora123",
-             "root","Root123","P@ssw0rd","Admin@123","bigbangx!","cookscan!","dosecret!"]
+             "root","Root123","P@ssw0rd","Admin@123","bigbangx!","cookscan!","dosecret!","cookscan.net","cookdex.net","cookiescan.io","cookiechain.io","dungeongames.io","nexora","nexora-tech","garuda-defi","bigbangx.io","dosecret.cookie-verse.io","Zahh-ID","rev1853","rghofur","riscarevan2201","Risca","Revan","Suasmara","Malang","Indonesia","Jakarta","cookscan2024","cookscan2025","cookscan2026","cookiescan2024","cookiescan2025","cookiescan2026","Plesk2027","admin2027","bigbangx2027","cookscan!","cookiescan!","bigbangx!","dosecret!","garuda!","nexora!","Cookscan123","Cookiescan123","Bigbangx123","Dosecret123","Garuda123","Nexora123","cookscan@123","Admin@2026","P@ssw0rd123","Qwerty123!","Welcome1","Welcome123","changeme123","letmein123","secret123","root123","toor123","pass123","test123","demo123","vps2024","vps2025","vps2026","server2024","server2025","server2026","host2024","host2025","host2026","web2024","web2025","web2026","mail2024","mail2025","mail2026","terra2024","terra2025","terra2026","luna2024","luna2025","luna2026","cosmos2024","cosmos2025","cosmos2026","atomone2024","atomone2025","atomone2026","columbus2024","columbus2025","columbus2026","bridge2024","bridge2025","bridge2026","relayer2024","relayer2025","relayer2026","hermes2024","hermes2025","hermes2026"]
     steps:
       - name: plesk probe ${{ matrix.pw }}
         run: |
